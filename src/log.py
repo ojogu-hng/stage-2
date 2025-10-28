@@ -55,3 +55,17 @@ def setup_logger(name: str, file_path: str, level=logging.DEBUG) -> logging.Logg
         logger.addHandler(console_handler)
 
     return logger
+
+
+
+
+
+def get_image_filepath(filename: str) -> str:
+    """
+    Ensures the 'generated_images' directory exists relative to the current file
+    and returns the full file path for the given filename.
+    """
+    IMAGE_DIR = os.path.join(CURRENT_DIR, "generated_images")
+    os.makedirs(IMAGE_DIR, exist_ok=True)
+    return os.path.join(IMAGE_DIR, filename)
+

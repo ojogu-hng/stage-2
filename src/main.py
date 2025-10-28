@@ -4,7 +4,7 @@ from src.service import Service
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
-
+from src.schema import CountryResponseSchema
 from src.db import drop_db, get_session, init_db
 from src.error import NotFoundError, register_error_handler
 
@@ -13,8 +13,8 @@ from src.error import NotFoundError, register_error_handler
 async def life_span(app: FastAPI):
     # Startup
     try:
-        # await drop_db()
-        # print("tables dropped")
+        await drop_db()
+        print("tables dropped")
         await init_db()
         print("tables created")
     except Exception as e:
@@ -47,8 +47,11 @@ def get_service(db: AsyncSession = Depends(get_session)):
 
 @app.post("/countries/refresh", status_code=201)
 # Fetch all countries and exchange rates, then cache them in the database
-async def fetch_Countries_data():
-    pass 
+async def fetch_Countries_data(service:Service = Depends(get_service) ):
+    data = await service.create_country()
+    validated_data = CountryResponseSchema.model_validate(data).model_dump() 
+    # return validated_data
+    
 
 # IMPORTANT: /strings route MUST come BEFORE /strings/{string_value}. query param should come before path param
 
@@ -58,12 +61,10 @@ async def get_countries_filter():
     pass
 
 
-
 @app.get("/countries/{name}")
 # Get one country by name
 async def get_country():
     pass
-
 
 
 
@@ -76,7 +77,6 @@ async def status():
 #   serve summary image
 async def country_image():
     pass 
-
 
 
 @app.delete("/countries/{name}")

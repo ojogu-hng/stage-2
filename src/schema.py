@@ -1,9 +1,10 @@
 from typing import Optional
 from datetime import datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, RootModel
+from uuid import UUID
 
 class CountryResponseSchema(BaseModel):
-    id: int
+    id: UUID
     name: str
     capital: Optional[str] = None
     region: Optional[str] = None
@@ -27,21 +28,22 @@ class StatusSchema(BaseModel):
 
 
 class Currency(BaseModel):
-    code: str = Field(..., pattern="^[A-Z]{3}$")
-    name: str
-    symbol: str
+    code: Optional[str] =None
+    name: Optional[str] = None
+    symbol: Optional[str] = None
 
 class CountryApiItem(BaseModel):
     name: str = Field(..., min_length=1)
     population: int = Field(..., ge=0)
     capital: Optional[str] = None
     region: Optional[str] = None
-    currencies: list[Currency]
+    currencies: Optional[list[Currency]] = None
     flag: str
     independent: bool
 
-class CountryApiResponse(BaseModel):
-    __root__: list[CountryApiItem]
+class CountryApiResponse(RootModel[list[CountryApiItem]]):
+    # A “root model” is a model that wraps a single value — usually a list, dict, or primitive — instead of having multiple fields
+    pass 
 
 class CurrencyApiResponse(BaseModel):
     result: str

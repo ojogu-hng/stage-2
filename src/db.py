@@ -32,18 +32,22 @@ class BaseModel(Base):
 
 class Country(BaseModel):
     __tablename__ = "countries"
-    name = sa.Column(sa.String, nullable=False)
+    name = sa.Column(sa.String, nullable=False, unique=True)
     capital = sa.Column(sa.String, nullable=True)
     region = sa.Column(sa.String, nullable=True)
-    population = sa.Column(sa.Integer, nullable=False)
-    currency_code = sa.Column(sa.String, nullable=False)
-    exchange_rate = sa.Column(sa.Float, nullable=False)
-    estimated_gdp = sa.Column(sa.Float, nullable=False)
+    population = sa.Column(sa.Integer, nullable=True)
+    currency_code = sa.Column(sa.String, nullable=True)
+    exchange_rate = sa.Column(sa.Float, nullable=True)
+    estimated_gdp = sa.Column(sa.Float, nullable=True)
     flag_url = sa.Column(sa.String, nullable=True)
     last_refreshed_at = sa.Column(sa.DateTime(timezone=True), default=sa.func.now(), onupdate=sa.func.now(), nullable=False)
     independent = sa.Column(sa.Boolean, nullable=False)
 
     currencies = relationship("Currency", back_populates="country")
+
+class Status(BaseModel):
+    __tablename__ = "status"
+    last_refreshed_at = sa.Column(sa.DateTime(timezone=True), nullable=False)
 
 class Currency(BaseModel):
     __tablename__ = "currencies"

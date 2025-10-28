@@ -25,6 +25,9 @@ class NotFoundError(BaseExceptionClass):
 class AlreadyExist(BaseExceptionClass):
     pass
 
+class ServiceUnavailableError(BaseExceptionClass):
+    pass
+
 
 def register_error_handler(app: FastAPI):
     @app.exception_handler(HTTPException)
@@ -72,4 +75,15 @@ def register_error_handler(app: FastAPI):
                 "error": str(exc.message) or "Resource already exists"
             },
             status_code=status.HTTP_409_CONFLICT,
+        )
+
+    @app.exception_handler(ServiceUnavailableError)
+    async def service_unavailable_error_handler(request: Request, exc: ServiceUnavailableError):
+        exception_logger.error(f"Service unavailable error: {str(exc)}")
+        return JSONResponse(
+            content={
+                "error": "External data source unavailable",
+                "details": str(exc.message)
+            },
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
         )
