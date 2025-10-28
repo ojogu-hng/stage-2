@@ -39,8 +39,8 @@ def register_error_handler(app: FastAPI):
     async def pydantic_validation_error_handler(request: Request, exc: ValidationError):
         exception_logger.error(f"Pydantic validation error: {str(exc)}")
         return JSONResponse(
-            content={"error": "Validation error", "errors": exc.errors()},
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            content={"error": "Validation error", "details": exc.errors()},
+            status_code=status.HTTP_400_BAD_REQUEST,
         )
 
     @app.exception_handler(RequestValidationError)

@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
 from typing import Optional
-
+from src.service import Service
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -40,6 +40,9 @@ app.add_middleware(
     allow_methods=["*"],  # Allows all methods
     allow_headers=["*"],  # Allows all headers
 )
+
+def get_service(db: AsyncSession = Depends(get_session)):
+    return Service(db=db)
 
 
 @app.post("/countries/refresh", status_code=201)
