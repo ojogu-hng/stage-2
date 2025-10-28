@@ -203,13 +203,19 @@ class Service():
 
             await self.db.commit()
             logger.info("Successfully committed all country data and updated status to the database.")
+            
+            #generate image
+            data = await self.status()
+            total_countries = data["total_countries"]
+            last_refreshed_at = data["last_refreshed_at"]
+            image = Service.generate_image()
             return True
 
         except Exception as e:
             await self.db.rollback()
             logger.error(f"Error during country data creation: {e}")
             raise
-        
+    
     async def status(self):
         logger.info("Fetching application status.")
         try:
@@ -219,11 +225,20 @@ class Service():
             total_countries = count.scalar()#return the single value 
             
             # Fetch the last_refreshed_at from the Status table
-            status_record = await self.db.execute(select(Status).where(Status.id == 1)) # Assuming id=1 for the single status record
-            last_refreshed_at_obj = status_record.scalar_one_or_none()
+            stmt = await self.db.execute(
+                select(Country)
+            )
+            result = stmt.scalar_one_or_none()
+            last_refreshed_at_obj = result.last_refreshed_at
             last_refreshed_at = last_refreshed_at_obj.last_refreshed_at if last_refreshed_at_obj else None
 
             logger.info(f"Status fetched: total_countries={total_countries}, last_refreshed_at={last_refreshed_at}")
+            
+            
+            #fetch top 5 by gdp
+            stmt = await self.db.execute(
+                select(Country).order_by(Country.estimated_gdp)
+            )
             return {
                 "total_countries": total_countries,
                 "last_refreshed_at": last_refreshed_at
