@@ -47,6 +47,7 @@ class Country(BaseModel):
 
 class Status(BaseModel):
     __tablename__ = "status"
+    name = sa.Column(sa.String, nullable=True, unique=True)
     last_refreshed_at = sa.Column(sa.DateTime(timezone=True), nullable=False)
 
 class Currency(BaseModel):

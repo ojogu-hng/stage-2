@@ -1,3 +1,4 @@
+import os
 import aiohttp
 import random
 from datetime import datetime
@@ -18,6 +19,7 @@ class Service():
     def __init__(self, db:AsyncSession):
         self.db = db
     
+    file_name = "summary.png"
     @staticmethod
     def compute_estimated_gdp(population, exchange_rate):
         logger.info(f"Computing estimated GDP for population={population}, exchange_rate={exchange_rate}")
@@ -30,30 +32,85 @@ class Service():
     def generate_image(total_countries, top_5, last_refresh):
         logger.info(f"Generating image with total_countries={total_countries}, top_5={top_5}, last_refresh={last_refresh}")
         try:
-            # Create a blank white image
-            width, height = 800, 400
-            image = Image.new("RGB", (width, height), color=(255, 255, 255)) 
+            from datetime import datetime
+            
+            # Create a larger image with better dimensions
+            width, height = 900, 600
+            image = Image.new("RGB", (width, height), color=(255, 255, 255))
+            
             # Initialize draw context
             draw = ImageDraw.Draw(image)
-            # Optional: Load a TrueType font (if you have one)
-            # font = ImageFont.truetype("arial.ttf", 24)
-            # fallback font:
-            font = ImageFont.load_default()
             
-            # Add text dynamically
-            draw.text((50, 120), f"Total number of countries: {total_countries}", fill="black", font=font)
-            draw.text((50, 120), f"top 5 countries  by estimated GDP: {top_5}", fill="black", font=font)
-            draw.text((50, 120), f"Timestamp of last refresh: {last_refresh}", fill="black", font=font)
+            # Try to use a better font, fallback to default
+            try:
+                title_font = ImageFont.truetype("arial.ttf", 32)
+                header_font = ImageFont.truetype("arial.ttf", 20)
+                body_font = ImageFont.truetype("arial.ttf", 16)
+            except Exception:
+                title_font = ImageFont.load_default()
+                header_font = ImageFont.load_default()
+                body_font = ImageFont.load_default()
             
-            file_path = get_image_filepath("image.png")
+            # Add a colored header bar
+            draw.rectangle([(0, 0), (width, 80)], fill=(41, 128, 185))
+            
+            # Add title
+            draw.text((50, 25), "Country GDP Statistics", fill="white", font=title_font)
+            
+            # Vertical spacing for content
+            y_position = 120
+            line_spacing = 60
+            
+            # Total countries section
+            draw.text((50, y_position), "Total Number of Countries:", fill=(52, 73, 94), font=header_font)
+            draw.text((50, y_position + 30), str(total_countries), fill="black", font=body_font)
+            y_position += line_spacing + 40
+            
+            # Top 5 countries section
+            draw.text((50, y_position), "Top 5 Countries by Estimated GDP:", fill=(52, 73, 94), font=header_font)
+            y_position += 35
+            
+            # Format top 5 as a list
+            if isinstance(top_5, list):
+                for i, country in enumerate(top_5, 1):
+                    draw.text((70, y_position), f"{i}. {country}", fill="black", font=body_font)
+                    y_position += 30
+            else:
+                draw.text((70, y_position), str(top_5), fill="black", font=body_font)
+                y_position += 30
+            
+            y_position += 30
+            
+            # Last refresh timestamp
+            draw.text((50, y_position), "Last Refresh:", fill=(52, 73, 94), font=header_font)
+            draw.text((50, y_position + 30), str(last_refresh), fill="black", font=body_font)
+            
+            # Add a footer line
+            draw.line([(50, height - 50), (width - 50, height - 50)], fill=(189, 195, 199), width=2)
+            draw.text((50, height - 35), f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", 
+                     fill=(149, 165, 166), font=body_font)
+            
+            # Generate filename with current date
+            # file_name = f"{datetime.now().strftime('%Y-%m-%d')}_image.png"
+            file_path = get_image_filepath(Service.file_name)
+            
             logger.info(f"Saving generated image to: {file_path}")
             image.save(file_path)
             logger.info("Image generated and saved successfully.")
+            
         except Exception as e:
             logger.error(f"Error generating image: {e}")
             raise
         
-    
+    async def serve_file(self):
+        file_path = get_image_filepath(Service.file_name)
+        logger.info(f"file path: {file_path}")
+        if not os.path.exists(file_path):
+            raise NotFoundError("Summary image not found")
+        return {
+            "file_path":file_path,
+            "file_name": Service.file_name
+        }
     async def _fetch_country_data(self):
         country_url = "https://restcountries.com/v2/all?fields=name,capital,region,population,flag,currencies"
         logger.info(f"Fetching country data from {country_url}")
@@ -113,11 +170,11 @@ class Service():
         try:
             stmt = select(Country)
             if region is not None:
-                stmt = stmt.where(Country.region == region)
-                logger.debug(f"Applied region filter: {region}")
+                stmt = stmt.where(sa.func.lower(Country.region) == region.lower())
+                logger.debug(f"Applied region filter (lowercase): {region}")
             if currency is not None:
-                stmt = stmt.where(Country.currency_code == currency)
-                logger.debug(f"Applied currency filter: {currency}")
+                stmt = stmt.where(sa.func.lower(Country.currency_code) == currency.lower())
+                logger.debug(f"Applied currency filter (lowercase): {currency}")
             if sort is not None:
                 stmt = stmt.order_by(sa.desc(Country.estimated_gdp))
                 logger.debug(f"Applied sort order by estimated_gdp: {sort}")
@@ -193,9 +250,11 @@ class Service():
 
             # Update or insert status record
             now = datetime.now()
-            stmt_status = insert(Status).values(last_refreshed_at=now)
+            stmt_status = insert(Status).values(name = "api_fetch", last_refreshed_at=now) #insert
+            
+            #update on conflict 
             stmt_status = stmt_status.on_conflict_do_update(
-                index_elements=[Status.id],  # assumes 'id' is unique
+                index_elements=[Status.name],  # assumes 'name' is unique
                 set_={"last_refreshed_at": now}
             )
             await self.db.execute(stmt_status)
@@ -208,7 +267,13 @@ class Service():
             data = await self.status()
             total_countries = data["total_countries"]
             last_refreshed_at = data["last_refreshed_at"]
-            image = Service.generate_image()
+            top_5 = data["top_5"]
+            image = Service.generate_image(
+                total_countries=total_countries,
+                last_refresh=last_refreshed_at,
+                top_5=top_5
+            )
+            logger.info("image successfully created")
             return True
 
         except Exception as e:
@@ -226,38 +291,41 @@ class Service():
             
             # Fetch the last_refreshed_at from the Status table
             stmt = await self.db.execute(
-                select(Country)
+                select(Status.last_refreshed_at).where(Status.name=="api_fetch")
             )
             result = stmt.scalar_one_or_none()
-            last_refreshed_at_obj = result.last_refreshed_at
-            last_refreshed_at = last_refreshed_at_obj.last_refreshed_at if last_refreshed_at_obj else None
+            last_refreshed_at_obj = result
+            last_refreshed_at = last_refreshed_at_obj if last_refreshed_at_obj else None
 
             logger.info(f"Status fetched: total_countries={total_countries}, last_refreshed_at={last_refreshed_at}")
             
             
             #fetch top 5 by gdp
             stmt = await self.db.execute(
-                select(Country).order_by(Country.estimated_gdp)
+                select(Country.estimated_gdp).order_by(Country.estimated_gdp.desc()).limit(5)
             )
+            top_5 = stmt.scalars().all() #Sequence of values or model objects. Used when values or model objects You expect multiple
+            logger.info(len(top_5))
             return {
                 "total_countries": total_countries,
-                "last_refreshed_at": last_refreshed_at
+                "last_refreshed_at": last_refreshed_at,
+                "top_5": top_5
             } 
         except Exception as e:
             logger.error(f"Error fetching application status: {e}")
             raise
     
-    async def fetch_by_name(self, name):
+    async def fetch_by_name(self, name:str):
         logger.info(f"Fetching country by name: {name}")
         try:
             result = await self.db.execute(
-                select(Country).where(Country.name == name)
+                select(Country).where(sa.func.lower(Country.name) == name.lower())
             )
             country = result.scalar_one_or_none()
-            if country:
-                logger.info(f"Found country: {name}")
-            else:
+            if not country:
                 logger.info(f"Country not found: {name}")
+                raise NotFoundError(f"'{name}' not found")
+            logger.info(f"Country found: {name}")
             return country
         except Exception as e:
             logger.error(f"Error fetching country by name '{name}': {e}")
@@ -271,8 +339,9 @@ class Service():
                 logger.warning(f"Country not found for deletion: {name}")
                 raise NotFoundError(f"Country with name {name} not found.")
             await self.db.delete(country)
-            await self.db.commit() # Changed self.commit() to self.db.commit()
+            await self.db.commit() 
             logger.info(f"Successfully deleted country: {name}")
+            return {"message": f"country '{name}' deleted successfully."}
         except NotFoundError:
             raise # Re-raise NotFoundError as it's an expected business error
         except Exception as e:

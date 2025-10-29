@@ -18,6 +18,11 @@ class CountryResponseSchema(BaseModel):
     class Config:
         from_attributes = True
 
+class ListCountryResponseSchema(BaseModel):
+    data: list[CountryResponseSchema]
+    class Config:
+        from_attributes = True
+    
 class StatusSchema(BaseModel):
     total_countries: int
     last_refreshed_at: datetime

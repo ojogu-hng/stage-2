@@ -65,7 +65,7 @@ def get_image_filepath(filename: str) -> str:
     Ensures the 'generated_images' directory exists relative to the current file
     and returns the full file path for the given filename.
     """
-    IMAGE_DIR = os.path.join(CURRENT_DIR, "generated_images")
+    IMAGE_DIR = os.path.join(CURRENT_DIR, "cache")
     os.makedirs(IMAGE_DIR, exist_ok=True)
     return os.path.join(IMAGE_DIR, filename)
 
